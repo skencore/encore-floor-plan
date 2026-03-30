@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>Encore Middletown - Interactive Floor Plan</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'IBM Plex Sans',sans-serif;background:#0f1419;color:#e7e9ea;overflow:hidden;height:100vh;width:100vw;touch-action:manipulation;user-select:none}
+  .app-header{background:linear-gradient(135deg,#1a1f2e,#0d1117);border-bottom:1px solid #30363d;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;z-index:100;position:relative;gap:6px;flex-wrap:wrap}
+  .app-title{font-size:14px;font-weight:700;color:#58a6ff;white-space:nowrap}
+  .mode-toggle{display:flex;background:#21262d;border-radius:8px;overflow:hidden;border:1px solid #30363d}
+  .mode-btn{padding:5px 12px;border:none;background:transparent;color:#8b949e;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+  .mode-btn.active{background:#388bfd;color:#fff}
+  .hdr-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .badge{background:#21262d;border:1px solid #30363d;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#3fb950}
+  .hdr-btn{padding:4px 8px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;border-radius:6px;font-family:inherit;font-size:10px;font-weight:600;cursor:pointer}
+  .hdr-btn:hover{background:#30363d}
+  .hdr-btn.danger{border-color:#f85149;color:#f85149}
+  .hdr-btn.danger:hover{background:#f85149;color:#fff}
+  .hdr-btn.active-toggle{background:#238636;border-color:#238636;color:#fff}
+  .sync-status{font-size:10px;color:#8b949e;padding:0 4px}
+  .sync-status.error{color:#f85149}
+  .sync-status.ok{color:#3fb950}
+  .sync-status.saving{color:#d29922}
+  .map-container{position:relative;width:100vw;height:calc(100vh - 44px);overflow:auto;-webkit-overflow-scrolling:touch;background:#161b22}
+  .map-wrapper{position:relative;display:inline-block;transform-origin:0 0}
+  .map-wrapper img{display:block;width:1600px;height:1200px;pointer-events:none}
+  .hotspot{position:absolute;border:2px solid rgba(88,166,255,.7);background:rgba(88,166,255,.1);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;min-width:20px;min-height:16px;transition:border-color .15s,background .15s}
+  .hotspot:hover{background:rgba(88,166,255,.25);border-color:#58a6ff}
+  .hotspot.complete{border-color:rgba(63,185,80,.9);background:rgba(63,185,80,.18)}
+  .hotspot.partial{border-color:rgba(210,153,34,.9);background:rgba(210,153,34,.15)}
+  .hotspot.dragging{opacity:.85;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.5)}
+  .hotspot.edit-mode{cursor:move;border-style:dashed}
+  .hotspot .resize-handle{position:absolute;bottom:-4px;right:-4px;width:10px;height:10px;background:#58a6ff;border-radius:2px;cursor:nwse-resize;display:none;z-index:55}
+  .hotspot.edit-mode .resize-handle{display:block}
+  .hotspot-label{font-size:7px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.8);text-align:center;pointer-events:none;line-height:1.15;padding:1px;overflow:hidden}
+  .overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:200}
+  .overlay.open{display:flex;align-items:center;justify-content:center}
+  .panel{background:#161b22;border:1px solid #30363d;border-radius:12px;width:380px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+  .panel-hdr{padding:12px 14px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#161b22;z-index:5}
+  .panel-title{font-size:14px;font-weight:700;color:#e7e9ea;flex:1}
+  .panel-close{background:none;border:none;color:#8b949e;font-size:22px;cursor:pointer;padding:2px 6px}
+  .panel-body{padding:10px 14px}
+  .cl-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #21262d;cursor:pointer;user-select:none}
+  .cl-item:last-child{border-bottom:none}
+  .chk{width:20px;height:20px;border:2px solid #30363d;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+  .cl-item.checked .chk{background:#3fb950;border-color:#3fb950}
+  .chk-mark{display:none;color:#fff;font-size:13px;font-weight:800}
+  .cl-item.checked .chk-mark{display:block}
+  .chk-lbl{font-size:13px;color:#c9d1d9}
+  .cl-item.checked .chk-lbl{color:#8b949e;text-decoration:line-through}
+  .field-row{display:flex;align-items:center;gap:8px;padding:7px 0}
+  .field-row label{font-size:12px;color:#c9d1d9;min-width:75px}
+  .field-input{background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e7e9ea;font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 10px;width:100%}
+  .field-input:focus{outline:none;border-color:#58a6ff}
+  .save-btn{width:100%;padding:9px;background:#238636;border:none;color:#fff;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px}
+  .save-btn:hover{background:#2ea043}
+  .zoom-ctrls{position:fixed;bottom:14px;right:14px;display:flex;flex-direction:column;gap:3px;z-index:50}
+  .zoom-btn{width:36px;height:36px;border-radius:8px;border:1px solid #30363d;background:#21262d;color:#e7e9ea;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .zoom-btn:hover{background:#30363d}
+  .legend{position:fixed;bottom:14px;left:14px;background:rgba(22,27,34,.95);border:1px solid #30363d;border-radius:8px;padding:6px 10px;z-index:50;font-size:10px}
+  .legend-item{display:flex;align-items:center;gap:5px;margin:2px 0}
+  .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .ctx-menu{position:fixed;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:4px 0;z-index:300;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none}
+  .ctx-menu.open{display:block}
+  .ctx-item{padding:7px 14px;font-size:12px;color:#c9d1d9;cursor:pointer}
+  .ctx-item:hover{background:#21262d;color:#fff}
+  .ctx-item.danger{color:#f85149}
+  .ctx-item.danger:hover{background:#f85149;color:#fff}
+  .loading-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:#0f1419;z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .spinner{width:32px;height:32px;border:3px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .load-text{color:#8b949e;font-size:13px;text-align:center;max-width:400px}
+</style>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="load-text" id="loadText">Connecting to Firebase...</div>
+</div>
+<div class="app-header">
+  <div class="app-title">Encore Middletown</div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('checklist')">Equipment</button>
+    <button class="mode-btn" onclick="setMode('ethernet')">Ethernet</button>
+  </div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" id="editToggle" onclick="toggleEditMode()">Edit Layout</button>
+    <button class="hdr-btn" onclick="addHotspot()">+ Add</button>
+    <span class="sync-status" id="syncStatus"></span>
+    <div class="badge" id="progressBadge">0/0</div>
+    <button class="hdr-btn" onclick="refreshData()">Refresh</button>
+  </div>
+</div>
+<div class="map-container" id="mapContainer" oncontextmenu="return false">
+  <div class="map-wrapper" id="mapWrapper">
+    <img id="floorImg" alt="Floor Plan" src="./Encore-CT-floorplan.jpg" />
+    <div id="hotspotsLayer"></div>
+  </div>
+</div>
+<div class="overlay" id="overlay" onclick="closePanel(event)">
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="panel-hdr">
+      <div class="panel-title" id="panelTitle"></div>
+      <button class="panel-close" onclick="closeOverlay()">&times;</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-item" onclick="ctxRename()">Rename</div>
+  <div class="ctx-item danger" onclick="ctxDelete()">Delete</div>
+</div>
+<div class="zoom-ctrls">
+  <button class="zoom-btn" onclick="zoomIn()">+</button>
+  <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
+  <button class="zoom-btn" onclick="zoomFit()" style="font-size:10px">Fit</button>
+</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="border:2px solid rgba(88,166,255,.7);background:rgba(88,166,255,.1)"></div>Not started</div>
+  <div class="legend-item"><div class="legend-dot" style="border:2px solid rgba(210,153,34,.9);background:rgba(210,153,34,.15)"></div>In progress</div>
+  <div class="legend-item"><div class="legend-dot" style="border:2px solid rgba(63,185,80,.9);background:rgba(63,185,80,.18)"></div>Complete</div>
+</div>
+<script>
+// ===== FIREBASE CONFIG =====
+const DB="https://encorect-floor-plan-default-rtdb.firebaseio.com";
+const ITEMS=['Monitors','Mouse & Keyboard','Docking Station','Web Camera','Power Strip','Power','Internet'];
+
+let locations=[];
+let eqData={};
+let mode='checklist';
+let editMode=false;
+let zoom=1;
+let dragState=null;
+let ctxTarget=null;
+let saveTimer=null;
+
+// ===== FIREBASE REST API =====
+async function fbGet(path){
+  const r=await fetch(DB+'/'+path+'.json');
+  if(!r.ok)throw new Error('Firebase GET failed: '+r.status);
+  return await r.json();
+}
+async function fbPut(path,data){
+  const r=await fetch(DB+'/'+path+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!r.ok)throw new Error('Firebase PUT failed: '+r.status);
+}
+async function fbPatch(path,data){
+  const r=await fetch(DB+'/'+path+'.json',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!r.ok)throw new Error('Firebase PATCH failed: '+r.status);
+}
+async function fbDelete(path){
+  const r=await fetch(DB+'/'+path+'.json',{method:'DELETE'});
+  if(!r.ok)throw new Error('Firebase DELETE failed: '+r.status);
+}
+
+function setSyncStatus(msg,type){
+  const el=document.getElementById('syncStatus');
+  el.textContent=msg;el.className='sync-status'+(type?' '+type:'');
+  if(type==='ok')setTimeout(()=>{el.textContent='';el.className='sync-status';},2500);
+}
+
+// ===== SEED DATA =====
+function defaultLocations(){
+  return {
+    l1:{name:'Conference Room',x:325,y:48,w:78,h:52},l2:{name:'Tom Belliveau',x:443,y:48,w:68,h:52},
+    l3:{name:'Visitor Office 1',x:528,y:82,w:42,h:34},l4:{name:'Visitor Office 2',x:572,y:82,w:42,h:34},
+    l5:{name:'Conference #2',x:610,y:44,w:82,h:52},l6:{name:'Andy Ariza',x:635,y:96,w:50,h:36},
+    l7:{name:'Alessandra Fournier',x:758,y:48,w:78,h:48},l8:{name:'Steve J / Trever K',x:848,y:48,w:82,h:48},
+    l9:{name:'Huddle #1',x:940,y:48,w:62,h:48},l10:{name:'Future Ops Mgr',x:1008,y:48,w:72,h:48},
+    l11:{name:'Kristen Sampson',x:1098,y:48,w:78,h:68},l12:{name:'Reception',x:735,y:96,w:78,h:40},
+    l13:{name:'Supply Closet',x:1025,y:96,w:68,h:32},l14:{name:'Copy/Print 1',x:1100,y:120,w:62,h:28},
+    l15:{name:'Main Conference',x:1188,y:48,w:88,h:82},l16:{name:'Training Entry',x:108,y:88,w:65,h:38},
+    l17:{name:'Training Room',x:52,y:148,w:132,h:72},l18:{name:'Steve Ceplenski',x:235,y:82,w:78,h:42},
+    l19:{name:'T&I WS Row 1',x:275,y:148,w:140,h:28},l20:{name:'T&I WS Row 2',x:275,y:178,w:140,h:28},
+    l21:{name:'Open Collab 1',x:455,y:192,w:72,h:28},l22:{name:'Open Collab 2',x:395,y:225,w:72,h:28},
+    l23:{name:'Copy/Print 2',x:355,y:192,w:55,h:22},l24:{name:'T&I Sales WS',x:555,y:170,w:190,h:70},
+    l25:{name:'FA Workstations',x:845,y:148,w:158,h:68},l26:{name:'SU WS Upper',x:1025,y:148,w:148,h:68},
+    l27:{name:'Kyle Bellemare',x:1155,y:215,w:82,h:48},l28:{name:'Conference #3',x:1255,y:290,w:82,h:68},
+    l29:{name:'Sprinkler Dept WS',x:438,y:270,w:92,h:32},
+    l30:{name:'Office A',x:650,y:302,w:52,h:38},l31:{name:'Office B',x:705,y:302,w:52,h:38},
+    l32:{name:'Office C',x:760,y:302,w:52,h:38},l33:{name:'Office D',x:815,y:302,w:52,h:38},
+    l34:{name:'DIS Workstations',x:240,y:292,w:105,h:42},
+    l35:{name:'WH Office 1',x:188,y:345,w:52,h:38},l36:{name:'WH Office 2',x:248,y:345,w:52,h:38},
+    l37:{name:'WH Office 3',x:308,y:345,w:52,h:38},l38:{name:'WH Office 4',x:375,y:338,w:42,h:32},
+    l39:{name:'WH Office 5',x:420,y:338,w:42,h:32},l40:{name:'WH Office 6',x:465,y:338,w:42,h:32},
+    l41:{name:'Tom Goldbach',x:345,y:372,w:68,h:42},l42:{name:'Mike Fiorillo',x:425,y:418,w:72,h:42},
+    l43:{name:'Huddle 2',x:518,y:440,w:48,h:32},l44:{name:'L2 Workstations',x:528,y:405,w:78,h:32},
+    l45:{name:'Office E',x:568,y:440,w:42,h:32},l46:{name:'Office F',x:612,y:440,w:42,h:32},
+    l47:{name:'Open Collab 3',x:418,y:372,w:65,h:28},
+    l48:{name:'SU WS Row A',x:850,y:355,w:68,h:25},l49:{name:'SU WS Row B',x:850,y:385,w:68,h:25},
+    l50:{name:'SU WS Row C',x:850,y:415,w:68,h:25},l51:{name:'SU WS Row D',x:850,y:445,w:68,h:25},
+    l52:{name:'SU WS Row E',x:850,y:475,w:68,h:25},
+    l53:{name:'FR WS Block A',x:1045,y:375,w:52,h:25},l54:{name:'FR WS Block B',x:1100,y:375,w:52,h:25},
+    l55:{name:'FR WS Block C',x:1045,y:405,w:52,h:25},l56:{name:'FR WS Block D',x:1100,y:405,w:52,h:25},
+    l57:{name:'WH Break Room',x:1210,y:352,w:68,h:42},l58:{name:'Main Break Room',x:328,y:218,w:70,h:42},
+    l59:{name:'IT Storage/Lab',x:52,y:345,w:88,h:42},l60:{name:'Kitchenette',x:172,y:88,w:55,h:38}
+  };
+}
+
+function uid(){return 'l'+Date.now().toString(36)+Math.random().toString(36).substr(2,4)}
+
+// ===== DATA LOADING =====
+async function loadAll(){
+  document.getElementById('loadText').textContent='Loading locations...';
+  let locRaw=await fbGet('locations');
+  if(!locRaw){
+    document.getElementById('loadText').textContent='First time setup - seeding data...';
+    locRaw=defaultLocations();
+    await fbPut('locations',locRaw);
+  }
+  locations=[];
+  Object.keys(locRaw).forEach(k=>{
+    const l=locRaw[k];
+    locations.push({id:k,name:l.name||'',x:l.x||0,y:l.y||0,w:l.w||60,h:l.h||30});
+  });
+
+  document.getElementById('loadText').textContent='Loading equipment data...';
+  const eqRaw=await fbGet('equipment');
+  eqData={};
+  if(eqRaw){
+    Object.keys(eqRaw).forEach(k=>{eqData[k]=eqRaw[k];});
+  }
+}
+
+async function refreshData(){
+  setSyncStatus('Refreshing...','');
+  try{await loadAll();render();updateProgress();setSyncStatus('Refreshed','ok');}
+  catch(e){setSyncStatus('Refresh failed','error');console.error(e);}
+}
+
+// ===== FIREBASE WRITES (DEBOUNCED) =====
+let pendingWrites={};
+function scheduleSave(path,data){
+  pendingWrites[path]=data;
+  if(saveTimer)clearTimeout(saveTimer);
+  setSyncStatus('Saving...','saving');
+  saveTimer=setTimeout(flushSaves,600);
+}
+async function flushSaves(){
+  const writes={...pendingWrites};
+  pendingWrites={};
+  try{
+    for(const [path,data] of Object.entries(writes)){
+      await fbPatch(path,data);
+    }
+    setSyncStatus('Synced','ok');
+  }catch(e){setSyncStatus('Sync failed!','error');console.error(e);}
+}
+
+// ===== UI =====
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>{
+    b.classList.toggle('active',(m==='checklist'&&b.textContent==='Equipment')||(m==='ethernet'&&b.textContent==='Ethernet'));
+  });
+  render();updateProgress();
+}
+function toggleEditMode(){
+  editMode=!editMode;
+  document.getElementById('editToggle').classList.toggle('active-toggle',editMode);
+  document.getElementById('editToggle').textContent=editMode?'Done Editing':'Edit Layout';
+  render();
+}
+async function addHotspot(){
+  const name=prompt('Name this location:');
+  if(!name||!name.trim())return;
+  const c=document.getElementById('mapContainer');
+  const nx=Math.round((c.scrollLeft+c.clientWidth/2)/zoom)-30;
+  const ny=Math.round((c.scrollTop+c.clientHeight/2)/zoom)-15;
+  const id=uid();
+  const loc={name:name.trim(),x:nx,y:ny,w:60,h:30};
+  locations.push({id,...loc});
+  setSyncStatus('Saving...','saving');
+  try{await fbPut('locations/'+id,loc);setSyncStatus('Synced','ok');}
+  catch(e){setSyncStatus('Save failed','error');}
+  render();updateProgress();
+}
+
+function getEq(id){return eqData[id]||{};}
+function eqComplete(id){const e=getEq(id);return e.monitors&&e.mk&&e.dock&&e.cam&&e.strip&&e.power&&e.internet;}
+function eqPartial(id){const e=getEq(id);return e.monitors||e.mk||e.dock||e.cam||e.strip||e.power||e.internet;}
+
+function render(){
+  const layer=document.getElementById('hotspotsLayer');layer.innerHTML='';
+  locations.forEach(loc=>{
+    const d=document.createElement('div');
+    d.className='hotspot'+(editMode?' edit-mode':'');
+    d.style.cssText='left:'+loc.x+'px;top:'+loc.y+'px;width:'+loc.w+'px;height:'+loc.h+'px';
+    if(!editMode){
+      if(mode==='checklist'){if(eqComplete(loc.id))d.classList.add('complete');else if(eqPartial(loc.id))d.classList.add('partial');}
+      else{if((getEq(loc.id).ports||'').length>0)d.classList.add('complete');}
+    }
+    const lbl=document.createElement('div');lbl.className='hotspot-label';
+    const eq=getEq(loc.id);
+    if(!editMode&&mode==='ethernet'&&eq.ports){
+      lbl.textContent=eq.ports;lbl.style.fontSize='8px';lbl.style.color='#3fb950';
+    }else if(!editMode&&mode==='checklist'){
+      const n=[eq.monitors,eq.mk,eq.dock,eq.cam,eq.strip,eq.power,eq.internet].filter(Boolean).length;
+      lbl.textContent=n>0?n+'/7':(loc.name.length>14?loc.name.substring(0,12)+'..':loc.name);
+    }else{lbl.textContent=loc.name.length>14?loc.name.substring(0,12)+'..':loc.name;}
+    d.appendChild(lbl);
+    const rh=document.createElement('div');rh.className='resize-handle';d.appendChild(rh);
+    if(editMode){
+      d.addEventListener('pointerdown',e=>startDrag(e,loc,d,false));
+      rh.addEventListener('pointerdown',e=>{e.stopPropagation();startDrag(e,loc,d,true);});
+      d.addEventListener('contextmenu',e=>{e.preventDefault();showCtx(e,loc);});
+      d.addEventListener('dblclick',e=>{e.stopPropagation();renameLoc(loc);});
+    }else{d.addEventListener('click',()=>openPanel(loc));}
+    layer.appendChild(d);
+  });
+}
+
+function startDrag(e,loc,el,isResize){
+  e.preventDefault();
+  dragState={loc,el,isResize,sx:e.clientX,sy:e.clientY,ox:loc.x,oy:loc.y,ow:loc.w,oh:loc.h};
+  el.classList.add('dragging');el.setPointerCapture(e.pointerId);
+  el.addEventListener('pointermove',onDrag);el.addEventListener('pointerup',endDrag);
+}
+function onDrag(e){
+  if(!dragState)return;
+  const dx=(e.clientX-dragState.sx)/zoom,dy=(e.clientY-dragState.sy)/zoom;
+  if(dragState.isResize){
+    dragState.loc.w=Math.max(20,Math.round(dragState.ow+dx));dragState.loc.h=Math.max(16,Math.round(dragState.oh+dy));
+    dragState.el.style.width=dragState.loc.w+'px';dragState.el.style.height=dragState.loc.h+'px';
+  }else{
+    dragState.loc.x=Math.max(0,Math.round(dragState.ox+dx));dragState.loc.y=Math.max(0,Math.round(dragState.oy+dy));
+    dragState.el.style.left=dragState.loc.x+'px';dragState.el.style.top=dragState.loc.y+'px';
+  }
+}
+function endDrag(e){
+  if(!dragState)return;
+  const loc=dragState.loc;
+  dragState.el.classList.remove('dragging');
+  dragState.el.removeEventListener('pointermove',onDrag);dragState.el.removeEventListener('pointerup',endDrag);
+  dragState=null;
+  scheduleSave('locations/'+loc.id,{name:loc.name,x:loc.x,y:loc.y,w:loc.w,h:loc.h});
+}
+
+function showCtx(e,loc){ctxTarget=loc;const m=document.getElementById('ctxMenu');m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';m.classList.add('open');setTimeout(()=>document.addEventListener('click',hideCtx,{once:true}),10);}
+function hideCtx(){document.getElementById('ctxMenu').classList.remove('open');}
+function ctxRename(){hideCtx();if(ctxTarget)renameLoc(ctxTarget);}
+async function ctxDelete(){
+  hideCtx();
+  if(!ctxTarget||!confirm('Delete "'+ctxTarget.name+'"?'))return;
+  setSyncStatus('Deleting...','saving');
+  try{
+    await fbDelete('locations/'+ctxTarget.id);
+    await fbDelete('equipment/'+ctxTarget.id);
+    delete eqData[ctxTarget.id];
+    locations=locations.filter(l=>l.id!==ctxTarget.id);
+    render();updateProgress();setSyncStatus('Deleted','ok');
+  }catch(e){setSyncStatus('Delete failed','error');}
+}
+async function renameLoc(loc){
+  const n=prompt('Rename:',loc.name);
+  if(!n||!n.trim()||n.trim()===loc.name)return;
+  loc.name=n.trim();render();
+  scheduleSave('locations/'+loc.id,{name:loc.name,x:loc.x,y:loc.y,w:loc.w,h:loc.h});
+}
+
+function updateProgress(){
+  const b=document.getElementById('progressBadge');
+  if(mode==='checklist'){
+    let done=0;locations.forEach(l=>{if(eqComplete(l.id))done++;});
+    b.textContent=done+'/'+locations.length;b.style.color=done===locations.length?'#3fb950':'#d29922';
+  }else{
+    let done=0;locations.forEach(l=>{if((getEq(l.id).ports||'').length>0)done++;});
+    b.textContent=done+'/'+locations.length;b.style.color=done===locations.length?'#3fb950':'#58a6ff';
+  }
+}
+
+function openPanel(loc){
+  document.getElementById('panelTitle').textContent=loc.name;
+  const body=document.getElementById('panelBody');
+  const eq=getEq(loc.id);
+  if(mode==='checklist'){
+    const fields=[['Monitors','monitors'],['Mouse & Keyboard','mk'],['Docking Station','dock'],
+      ['Web Camera','cam'],['Power Strip','strip'],['Power','power'],['Internet','internet']];
+    body.innerHTML=fields.map(([label,key])=>
+      '<div class="cl-item '+(eq[key]?'checked':'')+'" onclick="toggleCheck(\''+loc.id+'\',\''+key+'\',this)">'+
+      '<div class="chk"><span class="chk-mark">&#10003;</span></div>'+
+      '<div class="chk-lbl">'+label+'</div></div>'
+    ).join('');
+  }else{
+    body.innerHTML=
+      '<div class="field-row"><label>Port #(s)</label><input class="field-input" id="pIn" value="'+(eq.ports||'')+'" placeholder="e.g. A1-04, A1-05"/></div>'+
+      '<div class="field-row"><label>Notes</label><input class="field-input" id="nIn" value="'+(eq.notes||'')+'" placeholder="e.g. Patch Panel 2"/></div>'+
+      '<button class="save-btn" onclick="saveEth(\''+loc.id+'\')">Save</button>';
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closePanel(e){if(e.target===document.getElementById('overlay'))closeOverlay();}
+function closeOverlay(){document.getElementById('overlay').classList.remove('open');}
+
+function toggleCheck(id,key,el){
+  if(!eqData[id])eqData[id]={};
+  eqData[id][key]=!eqData[id][key];
+  el.classList.toggle('checked');
+  render();updateProgress();
+  scheduleSave('equipment/'+id,eqData[id]);
+}
+
+function saveEth(id){
+  if(!eqData[id])eqData[id]={};
+  eqData[id].ports=document.getElementById('pIn').value.trim();
+  eqData[id].notes=document.getElementById('nIn').value.trim();
+  closeOverlay();render();updateProgress();
+  scheduleSave('equipment/'+id,eqData[id]);
+}
+
+function setZoom(z){zoom=Math.max(.25,Math.min(3,z));document.getElementById('mapWrapper').style.transform='scale('+zoom+')';}
+function zoomIn(){setZoom(zoom+.15)}
+function zoomOut(){setZoom(zoom-.15)}
+function zoomFit(){const c=document.getElementById('mapContainer');setZoom(Math.min(c.clientWidth/1600,c.clientHeight/1200));}
+
+// ===== INIT =====
+async function init(){
+  try{
+    await loadAll();
+    document.getElementById('loadingScreen').style.display='none';
+    render();updateProgress();
+    setTimeout(zoomFit,100);
+    window.addEventListener('resize',()=>setTimeout(zoomFit,100));
+    setSyncStatus('Connected','ok');
+  }catch(e){
+    console.error('Init error',e);
+    document.getElementById('loadText').textContent='Connection failed: '+e.message+'\n\nMake sure your Firebase database rules are set to test mode.';
+    document.getElementById('loadText').style.color='#f85149';
+  }
+}
+init();
+</script>
+</body>
+</html>
