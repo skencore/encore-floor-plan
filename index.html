@@ -126,7 +126,7 @@
 <script>
 // ===== FIREBASE CONFIG =====
 const DB="https://encorect-floor-plan-default-rtdb.firebaseio.com";
-const ITEMS=['Monitors','Mouse & Keyboard','Docking Station','Web Camera','Power Strip','Power','Internet'];
+const ITEMS=['Monitors','Mouse & Keyboard','Docking Station','Web Camera','Power Strip','Power','Internet','Desk phone','Headset'];
 
 let locations=[];
 let eqData={};
@@ -280,8 +280,8 @@ async function addHotspot(){
 }
 
 function getEq(id){return eqData[id]||{};}
-function eqComplete(id){const e=getEq(id);return e.monitors&&e.mk&&e.dock&&e.cam&&e.strip&&e.power&&e.internet;}
-function eqPartial(id){const e=getEq(id);return e.monitors||e.mk||e.dock||e.cam||e.strip||e.power||e.internet;}
+function eqComplete(id){const e=getEq(id);return e.monitors&&e.mk&&e.dock&&e.cam&&e.strip&&e.power&&e.internet&&e.phone&&e.headset;}
+function eqPartial(id){const e=getEq(id);return e.monitors||e.mk||e.dock||e.cam||e.strip||e.power||e.internet||e.phone||e.headset;}
 
 function render(){
   const layer=document.getElementById('hotspotsLayer');layer.innerHTML='';
@@ -299,7 +299,7 @@ function render(){
       lbl.textContent=eq.ports;lbl.style.fontSize='8px';lbl.style.color='#3fb950';
     }else if(!editMode&&mode==='checklist'){
       const n=[eq.monitors,eq.mk,eq.dock,eq.cam,eq.strip,eq.power,eq.internet].filter(Boolean).length;
-      lbl.textContent=n>0?n+'/7':(loc.name.length>14?loc.name.substring(0,12)+'..':loc.name);
+      lbl.textContent=n>0?n+'/9':(loc.name.length>14?loc.name.substring(0,12)+'..':loc.name);
     }else{lbl.textContent=loc.name.length>14?loc.name.substring(0,12)+'..':loc.name;}
     d.appendChild(lbl);
     const rh=document.createElement('div');rh.className='resize-handle';d.appendChild(rh);
@@ -378,7 +378,8 @@ function openPanel(loc){
   const eq=getEq(loc.id);
   if(mode==='checklist'){
     const fields=[['Monitors','monitors'],['Mouse & Keyboard','mk'],['Docking Station','dock'],
-      ['Web Camera','cam'],['Power Strip','strip'],['Power','power'],['Internet','internet']];
+      ['Web Camera','cam'],['Power Strip','strip'],['Power','power'],['Internet','internet'],
+      ['Desk phone','desk phone'],['Headset','headset']];
     body.innerHTML=fields.map(([label,key])=>
       '<div class="cl-item '+(eq[key]?'checked':'')+'" onclick="toggleCheck(\''+loc.id+'\',\''+key+'\',this)">'+
       '<div class="chk"><span class="chk-mark">&#10003;</span></div>'+
