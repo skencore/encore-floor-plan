@@ -298,7 +298,7 @@ function render(){
     if(!editMode&&mode==='ethernet'&&eq.ports){
       lbl.textContent=eq.ports;lbl.style.fontSize='8px';lbl.style.color='#3fb950';
     }else if(!editMode&&mode==='checklist'){
-      const n=[eq.monitors,eq.mk,eq.dock,eq.cam,eq.strip,eq.power,eq.internet,eq.desk_phone,eq.headset].filter(Boolean).length;
+      const n=[eq.monitors,eq.mk,eq.dock,eq.cam,eq.strip,eq.power,eq.internet,eq.phone,eq.headset].filter(Boolean).length;
       lbl.textContent=n>0?n+'/9':(loc.name.length>14?loc.name.substring(0,12)+'..':loc.name);
     }else{lbl.textContent=loc.name.length>14?loc.name.substring(0,12)+'..':loc.name;}
     d.appendChild(lbl);
